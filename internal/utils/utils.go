@@ -190,6 +190,8 @@ func FormatXml(reader io.Reader, writer io.Writer, indent string, colors int) er
 			_, _ = fmt.Fprint(writer, tagColor("<!"), string(typedToken), tagColor(">"))
 			_, _ = fmt.Fprint(writer, newline, strings.Repeat(indent, level))
 		default:
+			// Should be impossible: all xml.Token types handled above
+			panic(fmt.Sprintf("unknown xml.Token type: %T", token))
 		}
 	}
 
@@ -406,6 +408,9 @@ func FormatHtml(reader io.Reader, writer io.Writer, indent string, colors int) e
 			if level == 0 {
 				_, _ = fmt.Fprint(writer, newline)
 			}
+		default:
+			// Should be impossible: all html.TokenType values handled above
+			panic(fmt.Sprintf("unknown html.TokenType: %v", token))
 		}
 	}
 
@@ -472,6 +477,9 @@ func FormatJson(reader io.Reader, writer io.Writer, indent string, colors int) e
 					level--
 				}
 				_, _ = fmt.Fprint(writer, newline, strings.Repeat(indent, level), tagColor("]"))
+			default:
+				// Should be impossible: json.Delim can only be '{', '}', '[', ']'
+				panic(fmt.Sprintf("unknown json.Delim: %v", tokenType))
 			}
 		case string:
 			escapedToken := strconv.Quote(token.(string))
@@ -488,6 +496,9 @@ func FormatJson(reader io.Reader, writer io.Writer, indent string, colors int) e
 			_, _ = fmt.Fprintf(writer, "%s%v", prefix, valueColor(token))
 		case nil:
 			_, _ = fmt.Fprintf(writer, "%s%s", prefix, valueColor("null"))
+		default:
+			// Should be impossible: all json.Token types handled above
+			panic(fmt.Sprintf("unknown json.Token type: %T", token))
 		}
 
 		switch tokenState {
@@ -497,6 +508,8 @@ func FormatJson(reader io.Reader, writer io.Writer, indent string, colors int) e
 			suffix = "," + newline + strings.Repeat(indent, level)
 		case jsonTokenArrayComma:
 			suffix = "," + newline + strings.Repeat(indent, level)
+		default:
+			// Other token states don't affect suffix formatting
 		}
 
 		prefix = suffix
