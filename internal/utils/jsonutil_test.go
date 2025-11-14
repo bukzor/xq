@@ -68,19 +68,19 @@ func TestExhaustiveNodeTypeHandling(t *testing.T) {
 	result := NodeToJSON(node, -1)
 	assert.NotNil(t, result)
 
-	// Verify the result is a map
-	resultMap, ok := result.(map[string]interface{})
+	// Verify the result is an OrderedMap
+	resultMap, ok := result.(*OrderedMap)
 	assert.True(t, ok)
 
 	// Verify root element exists
-	root, ok := resultMap["root"]
+	root, ok := resultMap.Get("root")
 	assert.True(t, ok)
 
-	rootMap, ok := root.(map[string]interface{})
+	rootMap, ok := root.(*OrderedMap)
 	assert.True(t, ok)
 
 	// Verify CDATA is preserved as text
-	cdataElem, ok := rootMap["cdata"]
+	cdataElem, ok := rootMap.Get("cdata")
 	assert.True(t, ok)
 	assert.Contains(t, cdataElem, "raw & unescaped")
 }
@@ -95,13 +95,16 @@ func TestSelfClosingTagsHaveNullContent(t *testing.T) {
 	result := NodeToJSON(node, -1)
 	assert.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(*OrderedMap)
 	assert.True(t, ok)
 
-	rootMap, ok := resultMap["root"].(map[string]interface{})
+	rootVal, ok := resultMap.Get("root")
+	assert.True(t, ok)
+	rootMap, ok := rootVal.(*OrderedMap)
 	assert.True(t, ok)
 
-	assert.Nil(t, rootMap["self-closing"], "Self-closing tag should have null content")
+	selfClosing, _ := rootMap.Get("self-closing")
+	assert.Nil(t, selfClosing, "Self-closing tag should have null content")
 }
 
 func TestWhitespaceOnlyTagsAreSelfClosing(t *testing.T) {
@@ -115,14 +118,51 @@ func TestWhitespaceOnlyTagsAreSelfClosing(t *testing.T) {
 	result := NodeToJSON(node, -1)
 	assert.NotNil(t, result)
 
-	resultMap, ok := result.(map[string]interface{})
+	resultMap, ok := result.(*OrderedMap)
 	assert.True(t, ok)
 
-	rootMap, ok := resultMap["root"].(map[string]interface{})
+	rootVal, ok := resultMap.Get("root")
+	assert.True(t, ok)
+	rootMap, ok := rootVal.(*OrderedMap)
 	assert.True(t, ok)
 
-	assert.Nil(t, rootMap["spaces"], "Spaces should have null content")
-	assert.Nil(t, rootMap["newlines"], "Newlines should have null content")
-	assert.Nil(t, rootMap["empty"], "Empty should have null content")
-	assert.Nil(t, rootMap["immediate-closing"], "Immediate-closing should have null content")
+	spaces, _ := rootMap.Get("spaces")
+	assert.Nil(t, spaces, "Spaces should have null content")
+	newlines, _ := rootMap.Get("newlines")
+	assert.Nil(t, newlines, "Newlines should have null content")
+	empty, _ := rootMap.Get("empty")
+	assert.Nil(t, empty, "Empty should have null content")
+	immediateClosing, _ := rootMap.Get("immediate-closing")
+	assert.Nil(t, immediateClosing, "Immediate-closing should have null content")
+}
+
+func TestElementOrderInJSON(t *testing.T) {
+	// Test that element order is preserved in JSON output
+	xmlInput := `<root>
+		<command-name>/status</command-name>
+		<command-message>status</command-message>
+		<command-args></command-args>
+	</root>`
+
+	node, err := xmlquery.Parse(strings.NewReader(xmlInput))
+	assert.NoError(t, err)
+
+	result := NodeToJSON(node, -1)
+	assert.NotNil(t, result)
+
+	// Marshal to JSON and check order
+	jsonData, err := json.Marshal(result)
+	assert.NoError(t, err)
+
+	jsonStr := string(jsonData)
+	t.Logf("JSON output: %s", jsonStr)
+
+	// Find positions of each key in the JSON string
+	namePos := strings.Index(jsonStr, "command-name")
+	messagePos := strings.Index(jsonStr, "command-message")
+	argsPos := strings.Index(jsonStr, "command-args")
+
+	// Check that they appear in the original order
+	assert.True(t, namePos < messagePos, "command-name should appear before command-message")
+	assert.True(t, messagePos < argsPos, "command-message should appear before command-args")
 }
